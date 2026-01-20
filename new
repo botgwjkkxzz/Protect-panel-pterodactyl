@@ -1,0 +1,75 @@
+#!/bin/bash
+
+TARGET_FILE="/var/www/pterodactyl/resources/views/templates/base/core.blade.php"
+BACKUP_FILE="${TARGET_FILE}.bak_$(date -u +"%Y-%m-%d-%H-%M-%S")"
+
+# Backup dulu file lama
+if [ -f "$TARGET_FILE" ]; then
+  cp "$TARGET_FILE" "$BACKUP_FILE"
+fi
+
+cat > "$TARGET_FILE" << 'EOF'
+@extends('templates/wrapper', [
+    'css' => ['body' => 'bg-neutral-900'],
+])
+
+@section('container')
+<div id="modal-portal"></div>
+<div id="app"></div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const username = @json(auth()->user()->name ?? 'User');
+
+    const hour = new Date().getHours();
+    let greet = "Halo";
+
+    if (hour >= 5 && hour < 12) greet = "☀️ Selamat Pagi";
+    else if (hour >= 12 && hour < 15) greet = "🌤️ Selamat Siang";
+    else if (hour >= 15 && hour < 18) greet = "🌇 Selamat Sore";
+    else greet = "🌙 Selamat Malam";
+
+    const toast = document.createElement("div");
+    toast.innerHTML = `
+        <strong>${greet}, ${username}!</strong><br>
+        <span style="font-size:12px;opacity:.85">
+            Welcome back to your panel 🚀
+        </span>
+    `;
+
+    Object.assign(toast.style, {
+        position: "fixed",
+        bottom: "30px",
+        right: "-400px",
+        background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+        color: "#fff",
+        padding: "14px 18px",
+        borderRadius: "14px",
+        fontFamily: "Inter, system-ui, monospace",
+        fontSize: "14px",
+        boxShadow: "0 15px 35px rgba(0,0,0,.45)",
+        zIndex: "9999",
+        transition: "all .6s ease",
+        maxWidth: "260px"
+    });
+
+    document.body.appendChild(toast);
+
+    // slide in
+    setTimeout(() => {
+        toast.style.right = "30px";
+    }, 300);
+
+    // fade out
+    setTimeout(() => {
+        toast.style.opacity = "0";
+        toast.style.transform = "translateY(20px)";
+    }, 4500);
+
+    setTimeout(() => toast.remove(), 5500);
+});
+</script>
+@endsection
+EOF
+
+echo "✅ Sambutan panel berhasil dibuat lebih keren."
