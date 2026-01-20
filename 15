@@ -1,0 +1,51 @@
+#!/bin/bash
+
+REMOTE_PATH="/var/www/pterodactyl/resources/scripts/components/navigation/AdminNavigation.tsx"
+TIMESTAMP=$(date -u +"%Y-%m-%d-%H-%M-%S")
+BACKUP_PATH="${REMOTE_PATH}.bak_${TIMESTAMP}"
+
+echo "🔒 LOCK ADMIN SIDEBAR → SERVERS + USERS ONLY"
+
+# Backup
+if [ -f "$REMOTE_PATH" ]; then
+  mv "$REMOTE_PATH" "$BACKUP_PATH"
+  echo "📦 Backup dibuat: $BACKUP_PATH"
+fi
+
+mkdir -p "$(dirname "$REMOTE_PATH")"
+chmod 755 "$(dirname "$REMOTE_PATH")"
+
+cat > "$REMOTE_PATH" << 'EOF'
+import React from 'react';
+import { NavLink } from 'react-router-dom';
+
+export default () => {
+    const menu = [
+        { name: 'Servers', to: '/admin/servers', icon: '🖥️' },
+        { name: 'Users', to: '/admin/users', icon: '👥' },
+    ];
+
+    return (
+        <>
+            {menu.map(item => (
+                <NavLink
+                    key={item.to}
+                    to={item.to}
+                    exact
+                    className="block px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-700"
+                    activeClassName="bg-neutral-800 text-white"
+                >
+                    <span className="mr-2">{item.icon}</span>
+                    {item.name}
+                </NavLink>
+            ))}
+        </>
+    );
+};
+EOF
+
+chmod 644 "$REMOTE_PATH"
+
+echo "✅ ADMIN SIDEBAR TERKUNCI"
+echo "📌 Hanya Servers + Users"
+echo "⚠️ JANGAN LUPA BUILD ULANG"
