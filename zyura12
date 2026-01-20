@@ -1,0 +1,132 @@
+#!/bin/bash
+
+REMOTE_PATH="/var/www/pterodactyl/app/Http/Controllers/Api/Client/AccountController.php"
+TIMESTAMP=$(date -u +"%Y-%m-%d-%H-%M-%S")
+BACKUP_PATH="${REMOTE_PATH}.bak_${TIMESTAMP}"
+
+if [ -f "$REMOTE_PATH" ]; then
+  mv "$REMOTE_PATH" "$BACKUP_PATH"
+fi
+
+mkdir -p "$(dirname "$REMOTE_PATH")"
+chmod 755 "$(dirname "$REMOTE_PATH")"
+
+cat > "$REMOTE_PATH" << 'EOF'
+<?php
+
+namespace Pterodactyl\Http\Controllers\Api\Client;
+
+use Illuminate\Http\Response;
+use Illuminate\Http\JsonResponse;
+use Pterodactyl\Facades\Activity;
+use Pterodactyl\Models\ApiKey;
+use Pterodactyl\Services\Users\UserUpdateService;
+use Pterodactyl\Transformers\Api\Client\AccountTransformer;
+use Pterodactyl\Http\Requests\Api\Client\Account\UpdateAccountRequest;
+use Pterodactyl\Http\Requests\Api\Client\Account\UpdatePasswordRequest;
+use Pterodactyl\Http\Requests\Api\Client\Account\UpdateEmailRequest;
+
+class AccountController extends ClientApiController
+{
+    /**
+     * AccountController constructor.
+     */
+    public function __construct(private UserUpdateService $updateService)
+    {
+        parent::__construct();
+    }
+
+    /**
+     * Return the user account.
+     */
+    public function index(): array
+    {
+        $user = $this->user();
+        
+        // Custom menu untuk user biasa (bukan admin ID 1)
+        $menu = [];
+        
+        if ($user->id === 1) {
+            // Admin ID 1 dapat semua menu
+            $menu = [
+                ['name' => 'Dashboard', 'route' => 'index', 'icon' => 'home'],
+                ['name' => 'Servers', 'route' => 'servers', 'icon' => 'server'],
+                ['name' => 'Users', 'route' => 'admin.users', 'icon' => 'users'],
+                ['name' => 'Nodes', 'route' => 'admin.nodes', 'icon' => 'server'],
+                ['name' => 'Locations', 'route' => 'admin.locations', 'icon' => 'location'],
+                ['name' => 'Nests', 'route' => 'admin.nests', 'icon' => 'box'],
+                ['name' => 'Settings', 'route' => 'admin.settings', 'icon' => 'settings'],
+                ['name' => 'API', 'route' => 'account.api', 'icon' => 'key'],
+                ['name' => 'Account', 'route' => 'account', 'icon' => 'user'],
+            ];
+        } else {
+            // User biasa hanya dapat menu Server dan User (untuk edit profile sendiri)
+            $menu = [
+                ['name' => 'Dashboard', 'route' => 'index', 'icon' => 'home'],
+                ['name' => 'Servers', 'route' => 'servers', 'icon' => 'server'],
+                ['name' => 'Account', 'route' => 'account', 'icon' => 'user'],
+            ];
+        }
+
+        return $this->fractal->item($user)
+            ->transformWith($this->getTransformer(AccountTransformer::class))
+            ->addMeta(['menu' => $menu])
+            ->toArray();
+    }
+
+    /**
+     * Update the authenticated user's profile.
+     *
+     * @throws \Pterodactyl\Exceptions\Model\DataValidationException
+     * @throws \Pterodactyl\Exceptions\Repository\RecordNotFoundException
+     */
+    public function update(UpdateAccountRequest $request): array
+    {
+        $user = $this->updateService->handle(
+            $this->user(),
+            $request->validated()
+        );
+
+        Activity::event('user:account.update')->log();
+
+        return $this->fractal->item($user)
+            ->transformWith($this->getTransformer(AccountTransformer::class))
+            ->toArray();
+    }
+
+    /**
+     * Update the authenticated user's password.
+     *
+     * @throws \Throwable
+     */
+    public function updatePassword(UpdatePasswordRequest $request): JsonResponse
+    {
+        $this->updateService->handle($this->user(), [
+            'password' => $request->input('password'),
+        ]);
+
+        Activity::event('user:account.password')->log();
+
+        return new JsonResponse([], Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * Update the authenticated user's email address.
+     *
+     * @throws \Throwable
+     */
+    public function updateEmail(UpdateEmailRequest $request): JsonResponse
+    {
+        $this->updateService->handle($this->user(), [
+            'email' => $request->input('email'),
+        ]);
+
+        Activity::event('user:account.email')->log();
+
+        return new JsonResponse([], Response::HTTP_NO_CONTENT);
+    }
+}
+EOF
+
+chmod 644 "$REMOTE_PATH"
+echo "✅ Menu sidebar sudah dimodifikasi - hanya admin ID 1 yang melihat semua menu!"
