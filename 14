@@ -1,0 +1,83 @@
+#!/bin/bash
+
+REMOTE_PATH="/var/www/pterodactyl/resources/scripts/components/navigation/SideNavigation.tsx"
+TIMESTAMP=$(date -u +"%Y-%m-%d-%H-%M-%S")
+BACKUP_PATH="${REMOTE_PATH}.bak_${TIMESTAMP}"
+
+echo "🔧 Lock Admin Menu: ID 1 = Servers + Users ONLY"
+
+# Backup file lama
+if [ -f "$REMOTE_PATH" ]; then
+  mv "$REMOTE_PATH" "$BACKUP_PATH"
+  echo "📦 Backup dibuat: $BACKUP_PATH"
+fi
+
+mkdir -p "$(dirname "$REMOTE_PATH")"
+chmod 755 "$(dirname "$REMOTE_PATH")"
+
+cat > "$REMOTE_PATH" << 'EOF'
+import React from 'react';
+import { NavLink } from 'react-router-dom';
+import { useStoreState } from '@/state/hooks';
+
+interface NavItem {
+    name: string;
+    to: string;
+    icon: string;
+}
+
+export default () => {
+    const user = useStoreState(state => state.user.data!);
+
+    const isRoot = user.id === 1;
+
+    const baseMenu: NavItem[] = [
+        { name: 'Servers', to: '/servers', icon: '🖥️' },
+    ];
+
+    const adminMenu: NavItem[] = isRoot ? [
+        { name: 'Users', to: '/admin/users', icon: '👥' },
+    ] : [];
+
+    const renderMenu = (items: NavItem[]) => (
+        <>
+            {items.map(item => (
+                <NavLink
+                    key={item.to}
+                    to={item.to}
+                    exact
+                    className="block px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-700"
+                    activeClassName="bg-neutral-800 text-white"
+                >
+                    <span className="mr-2">{item.icon}</span>
+                    {item.name}
+                </NavLink>
+            ))}
+        </>
+    );
+
+    return (
+        <div className="flex flex-col h-full bg-neutral-900">
+            <div className="flex-1">
+                {renderMenu(baseMenu)}
+
+                {isRoot && (
+                    <>
+                        <div className="px-4 pt-4 pb-2 text-xs uppercase text-neutral-500">
+                            Admin
+                        </div>
+                        {renderMenu(adminMenu)}
+                    </>
+                )}
+            </div>
+        </div>
+    );
+};
+EOF
+
+chmod 644 "$REMOTE_PATH"
+
+echo "✅ DONE!"
+echo "👑 ID 1: Servers + Users ONLY"
+echo "👤 User lain: Servers ONLY"
+echo "⚠️ WAJIB yarn build!"
